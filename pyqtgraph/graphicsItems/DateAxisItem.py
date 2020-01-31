@@ -203,13 +203,24 @@ class DateAxisItem(AxisItem):
     def __init__(self, orientation='bottom', **kwargs):
         """
         Create a new DateAxisItem.
-        
-        For `orientation` and `**kwargs`, see
+
+        **Handled Keyword arguments:**
+        date_offset     Timestamp to add to the date before building tickStrings. The
+                        same value has to be subtracted from x values of the plot.
+                        This is usefull for single-precision floating point renderer
+                        (like opengl) to increase the effective resolution (see
+                        https://en.wikipedia.org/wiki/IEEE_754).
+
+        For `orientation` and other `**kwargs`, see
         :func:`AxisItem.__init__ <pyqtgraph.AxisItem.__init__>`.
         
         """
 
         super(DateAxisItem, self).__init__(orientation, **kwargs)
+        self.timestampOffset = 0
+        if 'date_offset' in kwargs:
+            self.timestampOffset = kwargs['date_offset']
+
         # Set the zoom level to use depending on the time density on the axis
         self.utcOffset = time.timezone
         
@@ -226,7 +237,7 @@ class DateAxisItem(AxisItem):
         tickSpecs = self.zoomLevel.tickSpecs
         tickSpec = next((s for s in tickSpecs if s.spacing == spacing), None)
         try:
-            dates = [utcfromtimestamp(v - self.utcOffset) for v in values]
+            dates = [datetime.utcfromtimestamp(v + self.timestampOffset - self.utcOffset) for v in values]
         except (OverflowError, ValueError, OSError):
             # should not normally happen
             return ['%g' % ((v-self.utcOffset)//SEC_PER_YEAR + 1970) for v in values]
