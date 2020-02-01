@@ -14,6 +14,13 @@ WEEK_SPACING = 7 * DAY_SPACING
 MONTH_SPACING = 30 * DAY_SPACING
 YEAR_SPACING = 365 * DAY_SPACING
 
+def getUtcFromTimestamp(val: float) -> datetime:
+    try:
+        ret = datetime.utcfromtimestamp(val)
+    except:
+        ret = datetime.utcfromtimestamp(0)
+    return ret
+
 def makeMSStepper(stepSize):
     def stepper(val, n):
         val *= 1000
@@ -28,7 +35,7 @@ def makeSStepper(stepSize):
 
 def makeMStepper(stepSize):
     def stepper(val, n):
-        d = datetime.utcfromtimestamp(val)
+        d = getUtcFromTimestamp(val)
         base0m = (d.month + n*stepSize - 1)
         d = datetime(d.year + base0m // 12, base0m % 12 + 1, 1)
         return (d - datetime(1970, 1, 1)).total_seconds()
@@ -36,7 +43,7 @@ def makeMStepper(stepSize):
 
 def makeYStepper(stepSize):
     def stepper(val, n):
-        d = datetime.utcfromtimestamp(val)
+        d = getUtcFromTimestamp(val)
         next_date = datetime((d.year // (n*stepSize) + 1) * (n*stepSize), 1, 1)
         return (next_date - datetime(1970, 1, 1)).total_seconds()
     return stepper
@@ -170,9 +177,29 @@ class DateAxisItem(AxisItem):
     """
 
     def __init__(self, orientation, **kvargs):
+        """
+        ==============  ===============================================================
+        **Arguments:**
+        orientation     one of 'left', 'right', 'top', or 'bottom'
+
+        **Handled Keyword arguments:**
+        date_offset     Timestamp to add to the date before building tickStrings. The
+                        same value has to be subtracted from x values of the plot.
+                        This is usefull for single-precision floating point renderer
+                        (like opengl) to increase the effective resolution (see
+                        https://en.wikipedia.org/wiki/IEEE_754).
+
+        **kargs          All extra keyword arguments become CSS style options for
+                        the <span> tag which will surround the axis label and units.
+        ==============  ===============================================================
+        """
+
         super(DateAxisItem, self).__init__(orientation, **kvargs)
-        # Set the zoom level to use depending on the time density on the axis
+        self.timestampOffset = 0
+        if 'date_offset' in kvargs:
+            self.timestampOffset = kvargs['date_offset']
         self.utcOffset = time.timezone
+        # Set the zoom level to use depending on the time density on the axis
         self.zoomLevel = YEAR_MONTH_ZOOM_LEVEL
         # we need about 60pt for our largest label
         self.maxTicksPerPt = 1/60.0
@@ -188,7 +215,7 @@ class DateAxisItem(AxisItem):
     def tickStrings(self, values, scale, spacing):
         tickSpecs = self.zoomLevel.tickSpecs
         tickSpec = next((s for s in tickSpecs if s.spacing == spacing), None)
-        dates = [datetime.utcfromtimestamp(v - self.utcOffset) for v in values]
+        dates = [datetime.utcfromtimestamp(v + self.timestampOffset - self.utcOffset) for v in values]
         formatStrings = []
         for x in dates:
             try:
