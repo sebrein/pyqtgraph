@@ -108,6 +108,7 @@ class ZoomLevel:
         """
         self.tickSpecs = tickSpecs
         self.utcOffset = 0
+        self.timestampOffset = 0
 
     def tickValues(self, minVal, maxVal, minSpc):
         # return tick values for this format in the range minVal, maxVal
@@ -119,12 +120,12 @@ class ZoomLevel:
         valueSpecs = []
         # back-project (minVal maxVal) to UTC, compute ticks then offset to
         # back to local time again
-        utcMin = minVal - self.utcOffset
-        utcMax = maxVal - self.utcOffset
+        utcMin = minVal - self.utcOffset + self.timestampOffset
+        utcMax = maxVal - self.utcOffset + self.timestampOffset
         for spec in self.tickSpecs:
             ticks, skipFactor = spec.makeTicks(utcMin, utcMax, minSpc)
             # reposition tick labels to local time coordinates
-            ticks += self.utcOffset
+            ticks += (self.utcOffset - self.timestampOffset)
             # remove any ticks that were present in higher levels
             tick_list = [x for x in ticks.tolist() if x not in allTicks]
             allTicks.extend(tick_list)
@@ -240,3 +241,4 @@ class DateAxisItem(AxisItem):
         key = next((k for k in keys if density < k), keys[-1])
         self.zoomLevel = self.zoomLevels[key]
         self.zoomLevel.utcOffset = self.utcOffset
+        self.zoomLevel.timestampOffset = self.timestampOffset
